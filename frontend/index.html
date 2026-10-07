@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Smart Canteen – Prep Planner</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;800&family=Source+Sans+3:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root { --ink:#EAF3F1; --muted:#A9BDBA; --low:#3DDC97; --med:#FFC145; --high:#FF5C5C; box-sizing:border-box; color-scheme:dark; }
+  *, *::before, *::after { box-sizing:inherit; }
+  html, body { margin:0; }
+  body { min-height:100vh; background:#0b1c2e; color:var(--ink); font-family:"Source Sans 3",system-ui,sans-serif; line-height:1.5; }
+  #scene { position:fixed; inset:0; width:100%; height:100%; z-index:0; }
+  .wrap { position:relative; z-index:1; max-width:1040px; margin:0 auto; padding:44px 20px 70px; }
+  h1 { font-family:"Bricolage Grotesque",system-ui,sans-serif; font-weight:800; font-size:clamp(2.2rem,5.5vw,3.6rem); line-height:1.05; letter-spacing:-.02em; margin:0 0 10px; text-shadow:0 4px 30px rgba(0,0,0,.35); }
+  .sub { color:var(--muted); margin:0 0 30px; max-width:58ch; font-size:1.05rem; }
+  .grid { display:grid; grid-template-columns:1.05fr 1fr; gap:26px; align-items:start; }
+  @media (max-width:820px) { .grid { grid-template-columns:1fr; } }
+
+  .glass { background:rgba(9,20,30,.58); backdrop-filter:blur(16px) saturate(140%); -webkit-backdrop-filter:blur(16px) saturate(140%);
+    border:1px solid rgba(255,255,255,.15); border-radius:20px; padding:24px; box-shadow:0 24px 70px rgba(0,0,0,.38); }
+  @media (prefers-reduced-motion:no-preference) {
+    .glass { animation:rise .9s cubic-bezier(.2,.8,.2,1) both; }
+    #ticket { animation-delay:.15s; }
+    @keyframes rise { from { opacity:0; transform:translateY(28px) scale(.98); } }
+  }
+
+  .row { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:480px) { .row { grid-template-columns:1fr; } }
+  .field { margin-bottom:14px; }
+  label { display:block; font-weight:600; font-size:.93rem; margin-bottom:5px; }
+  select, input { width:100%; font:inherit; color:#fff; background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.2); border-radius:10px; padding:11px 12px; transition:border-color .2s, box-shadow .2s, background .2s; }
+  select option { background:#0f2233; color:#fff; }
+  select:hover, input:hover { background:rgba(255,255,255,.12); }
+  select:focus-visible, input:focus-visible { outline:none; border-color:#7EE6D3; box-shadow:0 0 0 3px rgba(126,230,211,.28); }
+  .note { font-size:.9rem; color:var(--muted); margin:0 0 16px; }
+  .note.warn { color:#FFD98A; background:rgba(255,193,69,.12); padding:9px 11px; border-radius:10px; }
+
+  button { position:relative; font:inherit; font-weight:600; width:100%; padding:14px; margin-top:6px; border:0; border-radius:12px; color:#04251f; cursor:pointer; overflow:hidden;
+    background:linear-gradient(110deg,#52F0C8,#5CC8FF,#52F0C8); background-size:220% 100%; box-shadow:0 10px 30px rgba(82,240,200,.28); transition:transform .15s, box-shadow .2s; }
+  button:hover { animation:slide 1.4s linear infinite; transform:translateY(-2px); box-shadow:0 14px 36px rgba(82,240,200,.4); }
+  button:active { transform:translateY(0) scale(.99); }
+  button:focus-visible { outline:3px solid #fff; outline-offset:2px; }
+  button:disabled { opacity:.75; cursor:wait; }
+  button.busy::after { content:""; display:inline-block; width:14px; height:14px; margin-left:10px; vertical-align:-2px; border:2.5px solid #04251f; border-right-color:transparent; border-radius:50%; animation:spin .7s linear infinite; }
+  @keyframes slide { to { background-position:-220% 0; } }
+  @keyframes spin { to { transform:rotate(360deg); } }
+  @media (prefers-reduced-motion:reduce) { button:hover { animation:none; transform:none; } }
+
+  #ticket { transition:transform .15s ease-out; will-change:transform; }
+  #ticket h2 { font-family:"Bricolage Grotesque",sans-serif; font-size:1.1rem; font-weight:600; margin:0 0 14px; color:var(--muted); }
+  .empty { color:var(--muted); margin:0; }
+  .top { display:flex; align-items:center; gap:22px; flex-wrap:wrap; }
+  .ring { position:relative; width:140px; height:140px; flex:none; }
+  .ring svg { width:100%; height:100%; transform:rotate(-90deg); }
+  .ring .track { fill:none; stroke:rgba(255,255,255,.12); stroke-width:11; }
+  .ring .bar { fill:none; stroke:currentColor; stroke-width:11; stroke-linecap:round; stroke-dasharray:326.73; stroke-dashoffset:326.73; transition:stroke-dashoffset 1.3s cubic-bezier(.2,.8,.2,1); filter:drop-shadow(0 0 8px currentColor); }
+  .ring .mid { position:absolute; inset:0; display:grid; place-content:center; text-align:center; font-family:"Bricolage Grotesque",sans-serif; font-weight:800; font-size:1.15rem; line-height:1.15; }
+  .ring .mid span { font:600 .78rem "Source Sans 3",sans-serif; color:var(--muted); }
+  .LOW { color:var(--low); } .MEDIUM { color:var(--med); } .HIGH { color:var(--high); }
+  .qty { font-family:"Bricolage Grotesque",sans-serif; font-weight:800; font-size:4.6rem; line-height:1; margin:0; }
+  .qty small { display:block; font:600 .95rem "Source Sans 3",sans-serif; color:var(--muted); margin-top:4px; }
+  .bars { margin:20px 0 14px; padding-top:16px; border-top:1.5px dashed rgba(255,255,255,.2); }
+  .bar-row { margin-bottom:12px; }
+  .bar-row div.l { display:flex; justify-content:space-between; font-size:.93rem; margin-bottom:4px; }
+  .bar-row b { font-weight:600; }
+  .track2 { height:10px; border-radius:6px; background:rgba(255,255,255,.1); overflow:hidden; }
+  .fill { height:100%; width:0; border-radius:6px; transition:width 1.2s cubic-bezier(.2,.8,.2,1); }
+  .fill.d { background:linear-gradient(90deg,#52F0C8,#5CC8FF); }
+  .fill.w { background:currentColor; }
+  .advice { margin:0; padding:12px 14px; border-radius:12px; background:rgba(255,255,255,.07); border-left:4px solid currentColor; }
+  .advice span { color:var(--ink); }
+  .error { color:#FFB4AE; background:rgba(255,92,92,.14); padding:11px 13px; border-radius:10px; margin:0; }
+  @media (prefers-reduced-motion:reduce) { .ring .bar, .fill { transition:none; } }
+</style>
+</head>
+<body>
+<canvas id="scene" aria-hidden="true"></canvas>
+
+<div class="wrap">
+  <h1>How much should we prepare?</h1>
+  <p class="sub">Smart Canteen predicts how much food your canteen, restaurant or store will need and how much of it is likely to go to waste, so you can prepare the right quantity and cut food waste.</p>
+
+  <div class="grid">
+    <form id="form" class="glass">
+      <p id="status" class="note">Connecting to the prediction server…</p>
+      <div class="row">
+        <div class="field"><label for="Business_Type">Business type</label><div id="slot-Business_Type"></div></div>
+        <div class="field"><label for="Food_Category">Food category</label><div id="slot-Food_Category"></div></div>
+      </div>
+      <div class="row">
+        <div class="field"><label for="Purchase_Quantity">Purchase quantity</label><input id="Purchase_Quantity" type="number" min="0" step="any" required></div>
+        <div class="field"><label for="Shelf_Life_Days">Shelf life (days)</label><input id="Shelf_Life_Days" type="number" min="0" step="any" required></div>
+      </div>
+      <div class="row">
+        <div class="field"><label for="Storage_Temperature">Storage temperature (°C)</label><input id="Storage_Temperature" type="number" step="any" required></div>
+        <div class="field"><label for="Promotion">Promotion</label><div id="slot-Promotion"></div></div>
+      </div>
+      <div class="field"><label for="Weather">Weather</label><div id="slot-Weather"></div></div>
+      <button id="go" type="submit">Predict demand and waste</button>
+    </form>
+
+    <section class="glass" id="ticket" aria-live="polite">
+      <h2>Prep ticket</h2>
+      <p class="empty">Fill in the form and select Predict. Your result appears here.</p>
+    </section>
+  </div>
+</div>
+
+<script>
+  // Address of your Flask server (from backend/app.py)
+  const API_URL = "http://127.0.0.1:5000";
+  const CATEGORICAL = ["Business_Type", "Food_Category", "Promotion", "Weather"];
+  const NUMERIC = ["Purchase_Quantity", "Shelf_Life_Days", "Storage_Temperature"];
+  const $ = (id) => document.getElementById(id);
+  const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  let options = null;
+
+  /* ---------- Animated weather scene ---------- */
+  const THEMES = {
+    idle:   { t:[11,28,46],  b:[14,58,66] },
+    sunny:  { t:[22,58,112], b:[236,146,64] },
+    hot:    { t:[58,14,12],  b:[198,72,22] },
+    rainy:  { t:[9,17,30],   b:[34,56,78] },
+    cloudy: { t:[36,50,68],  b:[96,114,132] }
+  };
+  const cv = $("scene"), cx = cv.getContext("2d");
+  let W, H, DPR, mode = "idle", P = [], T = 0;
+  let cur = { t:[...THEMES.idle.t], b:[...THEMES.idle.b] };
+
+  function resize() { DPR = Math.min(devicePixelRatio || 1, 2); W = cv.width = innerWidth * DPR; H = cv.height = innerHeight * DPR; seed(); if (reduce) tick(); }
+  function seed() {
+    const n = { idle:36, sunny:40, hot:80, rainy:170, cloudy:9 }[mode];
+    const size = { idle:()=>18+Math.random()*60, sunny:()=>1+Math.random()*2, hot:()=>1+Math.random()*2.5, rainy:()=>10+Math.random()*14, cloudy:()=>140+Math.random()*140 }[mode];
+    P = Array.from({ length:n }, () => ({ x:Math.random()*W, y:Math.random()*H, r:size()*DPR, s:(.3+Math.random())*DPR, p:Math.random()*6.28 }));
+  }
+  function setScene(name) {
+    name = String(name || "").toLowerCase();
+    mode = THEMES[name] ? name : "idle";
+    seed(); if (reduce) tick();
+  }
+  function tick() {
+    for (const k of ["t","b"]) for (let i = 0; i < 3; i++) cur[k][i] += (THEMES[mode][k][i] - cur[k][i]) * (reduce ? 1 : .04);
+    const g = cx.createLinearGradient(0, 0, 0, H);
+    g.addColorStop(0, `rgb(${cur.t.map(Math.round)})`); g.addColorStop(1, `rgb(${cur.b.map(Math.round)})`);
+    cx.fillStyle = g; cx.fillRect(0, 0, W, H);
+    if (!reduce) T += .016;
+    if (mode === "sunny") {
+      const x = W*.82, y = H*.18, r = (260 + Math.sin(T)*20) * DPR, s = cx.createRadialGradient(x, y, 0, x, y, r);
+      s.addColorStop(0, "rgba(255,226,150,.9)"); s.addColorStop(.25, "rgba(255,190,100,.35)"); s.addColorStop(1, "rgba(255,170,80,0)");
+      cx.fillStyle = s; cx.fillRect(0, 0, W, H);
+    }
+    for (const p of P) {
+      if (!reduce) {
+        if (mode === "rainy") { const v = (8 + p.p*3) * DPR; p.y += v; p.x -= v*.18; if (p.y > H + 30) { p.y = -30; p.x = Math.random()*W*1.2; } }
+        else if (mode === "hot") { p.y -= p.s*1.4; p.x += Math.sin(T*2 + p.p) * .6 * DPR; if (p.y < -10) { p.y = H + 10; p.x = Math.random()*W; } }
+        else if (mode === "cloudy") { p.x += p.s*.35; if (p.x - p.r > W) p.x = -p.r; }
+        else { p.y -= p.s*(mode === "sunny" ? .3 : .25); p.x += Math.sin(T*(mode === "sunny" ? 1 : .5) + p.p) * .4 * DPR; if (p.y < -p.r) { p.y = H + p.r; p.x = Math.random()*W; } }
+      }
+      if (mode === "rainy") { cx.strokeStyle = "rgba(170,205,235,.35)"; cx.lineWidth = DPR; cx.beginPath(); cx.moveTo(p.x, p.y); cx.lineTo(p.x + p.r*.18, p.y - p.r); cx.stroke(); continue; }
+      cx.fillStyle = { hot:"rgba(255,170,70,.75)", cloudy:"rgba(255,255,255,.07)", sunny:"rgba(255,240,200,.6)", idle:"rgba(120,230,210,.06)" }[mode];
+      cx.beginPath(); cx.arc(p.x, p.y, p.r, 0, 6.283); cx.fill();
+    }
+    if (!reduce) requestAnimationFrame(tick);
+  }
+  addEventListener("resize", resize);
+  resize(); tick();
+
+  /* ---------- Form building ---------- */
+  function buildCategoricalFields() {
+    CATEGORICAL.forEach((col) => {
+      const slot = $("slot-" + col);
+      if (options && options[col]) {
+        const sel = document.createElement("select");
+        sel.id = col; sel.required = true;
+        sel.innerHTML = '<option value="" disabled selected>Choose…</option>' +
+          options[col].map((v, i) => `<option value="${i}">${String(v).replace(/</g, "&lt;")}</option>`).join("");
+        slot.replaceChildren(sel);
+      } else {
+        const inp = document.createElement("input");
+        inp.id = col; inp.type = "text"; inp.required = true;
+        slot.replaceChildren(inp);
+      }
+    });
+    $("Weather").addEventListener("change", () => setScene(readCategorical("Weather")));
+    $("Weather").addEventListener("input", () => setScene(readCategorical("Weather")));
+  }
+  function readCategorical(col) {
+    const el = $(col);
+    if (options && options[col]) return options[col][Number(el.value)]; // keeps the original type (text or number)
+    const t = el.value.trim();
+    return /^-?\d+(\.\d+)?$/.test(t) ? Number(t) : t;
+  }
+  async function loadOptions() {
+    const status = $("status");
+    try {
+      const res = await fetch(API_URL + "/options");
+      if (!res.ok) throw new Error("no options route");
+      options = await res.json();
+      status.textContent = "Connected. Choose values from the lists.";
+    } catch (e) {
+      options = null;
+      status.className = "note warn";
+      status.textContent = "Could not load the lists from the server, so type the values exactly as in your training data. Add the /options route to app.py for dropdowns.";
+    }
+    buildCategoricalFields();
+  }
+
+  /* ---------- Result display ---------- */
+  function countUp(el, to, dec) {
+    if (reduce) { el.textContent = to; return; }
+    const t0 = performance.now();
+    (function f(t) {
+      const k = Math.min(1, (t - t0) / 1000), e = 1 - Math.pow(1 - k, 3);
+      el.textContent = k < 1 ? (to * e).toFixed(dec) : to;
+      if (k < 1) requestAnimationFrame(f);
+    })(t0);
+  }
+  function showError(msg) {
+    $("ticket").innerHTML = '<h2>Prep ticket</h2><p class="error"></p>';
+    $("ticket").querySelector(".error").textContent = msg;
+  }
+  function showResult(r) {
+    const risk = ["LOW", "MEDIUM", "HIGH"].includes(r.waste_risk) ? r.waste_risk : "MEDIUM";
+    const label = { LOW:"Low", MEDIUM:"Medium", HIGH:"High" }[risk];
+    const frac = { LOW:.34, MEDIUM:.67, HIGH:1 }[risk];
+    const wastePct = r.predicted_demand > 0 ? Math.min(100, (r.predicted_waste / r.predicted_demand) * 100) : 0;
+    const t = $("ticket");
+    t.innerHTML = `
+      <h2>Prep ticket</h2>
+      <div class="top ${risk}">
+        <div class="ring" role="img" aria-label="${label} waste risk">
+          <svg viewBox="0 0 120 120"><circle class="track" cx="60" cy="60" r="52"/><circle class="bar" id="ringbar" cx="60" cy="60" r="52"/></svg>
+          <div class="mid">${label}<span>waste risk</span></div>
+        </div>
+        <p class="qty" style="color:var(--ink)"><span id="n-qty">0</span><small>units to prepare</small></p>
+      </div>
+      <div class="bars ${risk}">
+        <div class="bar-row" style="color:var(--ink)"><div class="l"><span>Predicted demand</span><b id="n-dem">0</b></div><div class="track2"><div class="fill d" id="f-dem"></div></div></div>
+        <div class="bar-row"><div class="l" style="color:var(--ink)"><span>Predicted waste</span><b id="n-was">0</b></div><div class="track2"><div class="fill w" id="f-was"></div></div></div>
+      </div>
+      <p class="advice ${risk}"><span></span></p>`;
+    t.querySelector(".advice span").textContent = r.recommendation;
+    countUp($("n-qty"), r.recommended_quantity, 0);
+    countUp($("n-dem"), r.predicted_demand, 2);
+    countUp($("n-was"), r.predicted_waste, 2);
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      $("ringbar").style.strokeDashoffset = 326.73 * (1 - frac);
+      $("f-dem").style.width = "100%";
+      $("f-was").style.width = Math.max(wastePct, 2) + "%";
+    }));
+  }
+
+  /* Gentle 3D tilt on the result card */
+  const tk = $("ticket");
+  if (!reduce) {
+    tk.addEventListener("pointermove", (e) => {
+      const b = tk.getBoundingClientRect(), x = (e.clientX - b.left) / b.width - .5, y = (e.clientY - b.top) / b.height - .5;
+      tk.style.transform = `perspective(900px) rotateY(${x*7}deg) rotateX(${-y*7}deg)`;
+    });
+    tk.addEventListener("pointerleave", () => (tk.style.transform = ""));
+  }
+
+  /* ---------- Submit ---------- */
+  $("form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const payload = {};
+    CATEGORICAL.forEach((c) => (payload[c] = readCategorical(c)));
+    NUMERIC.forEach((c) => (payload[c] = Number($(c).value)));
+    const btn = $("go");
+    btn.disabled = true; btn.classList.add("busy"); btn.textContent = "Predicting";
+    try {
+      const res = await fetch(API_URL + "/predict", { method:"POST", headers:{ "Content-Type":"application/json" }, body:JSON.stringify(payload) });
+      const data = await res.json();
+      if (!res.ok || data.error) throw new Error(data.error || "The server returned an error.");
+      showResult(data);
+    } catch (err) {
+      showError(err instanceof TypeError
+        ? "Cannot reach the server. Start it with: python backend\\app.py, then try again."
+        : "Prediction failed: " + err.message);
+    } finally {
+      btn.disabled = false; btn.classList.remove("busy"); btn.textContent = "Predict demand and waste";
+    }
+  });
+
+  loadOptions();
+</script>
+</body>
+</html>
